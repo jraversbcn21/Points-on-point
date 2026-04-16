@@ -1,0 +1,164 @@
+.points-on-point-toast {
+  background: linear-gradient(135deg, #E3F2FD 0%, #FFFFFF 100%);
+  border: none;
+  border-left: 4px solid #42A5F5;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(66, 165, 245, 0.2), 0 4px 8px rgba(0, 0, 0, 0.1);
+  max-width: 340px;
+  min-width: 300px;
+  pointer-events: auto;
+  transform: translateX(100%);
+  opacity: 0;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow: hidden;
+  backdrop-filter: blur(10px);
+}
+
+.toast-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px 10px;
+  background: linear-gradient(to right, rgba(66, 165, 245, 0.08), transparent);
+  border-bottom: 1px solid rgba(66, 165, 245, 0.15);
+}
+
+.toast-title {
+  font-weight: 500;
+  color: #1976D2;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.toast-title::before {
+  content: '🔔';
+  font-size: 16px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+}
+
+.toast-close {
+  background: #ffffff !important;
+  border: 1px solid #42A5F5 !important;
+  font-size: 14px !important;
+  color: #1976D2 !important;
+  cursor: pointer !important;
+  padding: 0 !important;
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  min-height: 20px !important;
+  max-width: 20px !important;
+  max-height: 20px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 50% !important;
+  transition: all 0.2s ease !important;
+  font-weight: 400 !important;
+  pointer-events: auto !important;
+  box-sizing: border-box !important;
+  line-height: 1 !important;
+  text-align: center !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  vertical-align: middle !important;
+  text-overflow: ellipsis !important;
+  touch-action: manipulation !important;
+  position: relative !important;
+  margin: 0 !important;
+}
+
+.toast-close:hover {
+  background: #E3F2FD;
+  color: #0D47A1;
+  transform: rotate(90deg) scale(1.1);
+  border-color: #42A5F5;
+}
+
+.toast-content {
+  padding: 12px 18px 14px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border-radius: 0 0 12px 12px;
+}
+
+.toast-content:hover {
+  background: rgba(66, 165, 245, 0.05);
+}
+
+.toast-task {
+  color: #1565C0;
+  font-weight: 500;
+  margin-bottom: 6px;
+  word-wrap: break-word;
+  white-space: normal;
+  font-size: 14px;
+}
+
+.toast-time {
+  font-size: 11px;
+  color: #5E92F3;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 400;
+}
+
+.toast-time::before {
+  content: '🕐';
+  font-size: 12px;
+}
+
+.toast-message {
+  font-size: 12px;
+  color: #64B5F6;
+  font-style: italic;
+  word-wrap: break-word;
+  white-space: normal;
+  padding: 8px 12px;
+  background: rgba(66, 165, 245, 0.08);
+  border-radius: 6px;
+  border-left: 2px solid #42A5F5;
+  margin-top: 6px;
+}
+
+/* Hover effect on entire toast */
+.points-on-point-toast:hover {
+  box-shadow: 0 12px 32px rgba(66, 165, 245, 0.3), 0 6px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px) translateX(0) !important;
+}
+
+/* Animation for multiple toasts */
+.points-on-point-toast:nth-child(n+2) {
+  margin-top: 12px;
+}
+
+/* Pulse animation for new toast */
+@keyframes toastPulse {
+  0%, 100% {
+    box-shadow: 0 8px 24px rgba(66, 165, 245, 0.2), 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+  50% {
+    box-shadow: 0 12px 32px rgba(66, 165, 245, 0.4), 0 6px 12px rgba(0, 0, 0, 0.15);
+  }
+}
+
+.points-on-point-toast {
+  animation: toastPulse 2s ease-in-out infinite;
+}
+
+/* Responsive adjustments */
+@media (max-width: 480px) {
+  .points-on-point-toast {
+    max-width: calc(100vw - 40px);
+    min-width: 280px;
+  }
+}
+
+/* Force cache refresh - v2 */
