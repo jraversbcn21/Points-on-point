@@ -18,7 +18,16 @@ export const translations = {
     delete: 'Delete',
     language: 'Language',
     english: 'English',
-    spanish: 'Spanish'
+    spanish: 'Spanish',
+    soundEnabled: 'Reminder sound',
+    soundOn: 'On',
+    soundOff: 'Off',
+    editTask: 'Double-click to edit',
+    reminderFor: 'Reminder for',
+    recurrence: 'Repeat',
+    recurrenceNone: 'Once',
+    recurrenceDaily: 'Daily',
+    recurrenceWeekly: 'Weekly'
   },
   es: {
     addPlaceholder: 'Añadir nueva tarea...',
@@ -39,7 +48,16 @@ export const translations = {
     delete: 'Eliminar',
     language: 'Idioma',
     english: 'Inglés',
-    spanish: 'Español'
+    spanish: 'Español',
+    soundEnabled: 'Sonido de recordatorio',
+    soundOn: 'Sí',
+    soundOff: 'No',
+    editTask: 'Doble clic para editar',
+    reminderFor: 'Recordatorio para',
+    recurrence: 'Repetir',
+    recurrenceNone: 'Una vez',
+    recurrenceDaily: 'Diario',
+    recurrenceWeekly: 'Semanal'
   }
 } as const;
 

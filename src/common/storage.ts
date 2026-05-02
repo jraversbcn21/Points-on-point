@@ -26,7 +26,7 @@ export const storage = {
       reminder
     };
     
-    tasks.push(newTask);
+    tasks.unshift(newTask);
     await this.saveTasks(tasks);
     return newTask;
   },
@@ -36,6 +36,9 @@ export const storage = {
     const index = tasks.findIndex(task => task.id === taskId);
     if (index !== -1) {
       tasks[index] = { ...tasks[index], ...updates };
+      if ('reminder' in updates && !updates.reminder) {
+        delete tasks[index].reminder;
+      }
       await this.saveTasks(tasks);
     }
   },
@@ -48,7 +51,7 @@ export const storage = {
 
   async getSettings() {
     const result = await chrome.storage.local.get(STORAGE_KEYS.SETTINGS);
-    return result[STORAGE_KEYS.SETTINGS] || { language: 'en' };
+    return result[STORAGE_KEYS.SETTINGS] || { language: 'en', soundEnabled: true };
   },
 
   async updateSettings(settings: Partial<StorageData['settings']>): Promise<void> {

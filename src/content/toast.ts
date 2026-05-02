@@ -13,12 +13,14 @@ interface Reminder {
   taskId: string;
   dueAt: number;
   message?: string;
+  recurrence?: 'none' | 'daily' | 'weekly';
 }
 
 interface ToastMessage {
   type: 'POP_TOAST';
   task: Task;
   language?: string;
+  soundEnabled?: boolean;
 }
 
 // Simple language detection
@@ -32,12 +34,16 @@ const translations = {
   en: {
     toastTitle: 'Reminder',
     toastMessage: 'Time for your task!',
-    close: 'Close'
+    close: 'Close',
+    daily: 'Daily',
+    weekly: 'Weekly'
   },
   es: {
     toastTitle: 'Recordatorio',
     toastMessage: '¡Hora de tu tarea!',
-    close: 'Cerrar'
+    close: 'Cerrar',
+    daily: 'Diario',
+    weekly: 'Semanal'
   }
 };
 
@@ -86,8 +92,11 @@ class ToastManager {
       if (message.type === 'POP_TOAST') {
         console.log('[Points on Point] Showing toast for task:', message.task.text)
         this.showToast(message.task, message.language)
+        if (message.soundEnabled !== false) {
+          this.playNotificationSound()
+        }
         sendResponse({ success: true })
-        return true // Mantener el canal abierto para la respuesta
+        return true
       }
       return false
     })
@@ -117,10 +126,12 @@ class ToastManager {
     
     const reminderMessage = task.reminder?.message || getTranslation('toastMessage', language as any)
     const dueTime = task.reminder ? new Date(task.reminder.dueAt).toLocaleString() : ''
-    
+    const recurrence = task.reminder?.recurrence
+    const recurrenceLabel = recurrence && recurrence !== 'none' ? ` 🔁 ${getTranslation(recurrence, language as any)}` : ''
+
     toast.innerHTML = `
       <div class="toast-header">
-        <span class="toast-title">${getTranslation('toastTitle', language as any)}</span>
+        <span class="toast-title">${getTranslation('toastTitle', language as any)}${recurrenceLabel}</span>
         <button class="toast-close" aria-label="${getTranslation('close', language as any)}">×</button>
       </div>
       <div class="toast-content">
@@ -176,6 +187,19 @@ class ToastManager {
       }
     } catch (error) {
       console.error('Error marking task as completed:', error)
+    }
+  }
+
+  private playNotificationSound(): void {
+    try {
+      const soundUrl = chrome.runtime.getURL('sounds/notification.wav')
+      const audio = new Audio(soundUrl)
+      audio.volume = 0.5
+      audio.play().catch(err => {
+        console.log('[Points on Point] Could not play notification sound:', err)
+      })
+    } catch (error) {
+      console.log('[Points on Point] Error creating audio:', error)
     }
   }
 

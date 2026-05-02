@@ -7,12 +7,25 @@ const restoreAlarms = async () => {
   console.log('Restoring alarms from tasks...')
   const tasks = await storage.getTasks()
   const now = Date.now()
-  
+
   for (const task of tasks) {
-    if (task.reminder && !task.completed && task.reminder.dueAt > now) {
-      // Schedule alarm for this task
-      await chrome.alarms.create(task.id, { when: task.reminder.dueAt })
-      console.log(`Restored alarm for task ${task.id} at ${new Date(task.reminder.dueAt)}`)
+    if (!task.reminder || task.completed) continue
+
+    let dueAt = task.reminder.dueAt
+    const recurrence = task.reminder.recurrence
+
+    if (dueAt <= now && recurrence && recurrence !== 'none') {
+      const increment = recurrence === 'daily' ? 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000
+      while (dueAt <= now) {
+        dueAt += increment
+      }
+      const updatedReminder = { ...task.reminder, dueAt }
+      await storage.updateTask(task.id, { reminder: updatedReminder })
+    }
+
+    if (dueAt > now) {
+      await chrome.alarms.create(task.id, { when: dueAt })
+      console.log(`Restored alarm for task ${task.id} at ${new Date(dueAt)}`)
     }
   }
 }
@@ -99,11 +112,14 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
       requireInteraction: true
     })
 
+    const soundEnabled = settings.soundEnabled !== false
+
     // Send message to active tab first, or first available tab
     const message: ToastMessage = {
       type: 'POP_TOAST',
       task,
-      language
+      language,
+      soundEnabled
     }
 
     // Try to send to active tab first
@@ -137,6 +153,22 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
       console.log('Toast message sent successfully')
     } else {
       console.log('No tabs received the toast message, notification shown instead')
+    }
+
+    // Reschedule if recurring
+    const recurrence = task.reminder?.recurrence
+    if (recurrence && recurrence !== 'none') {
+      const now = Date.now()
+      let nextDueAt = task.reminder!.dueAt
+      const increment = recurrence === 'daily' ? 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000
+      // Advance past the current time in case multiple intervals were missed
+      while (nextDueAt <= now) {
+        nextDueAt += increment
+      }
+      const updatedReminder = { ...task.reminder!, dueAt: nextDueAt }
+      await storage.updateTask(task.id, { reminder: updatedReminder })
+      await chrome.alarms.create(task.id, { when: nextDueAt })
+      console.log(`Rescheduled ${recurrence} alarm for task ${task.id} at ${new Date(nextDueAt)}`)
     }
   } catch (error) {
     console.error('Error handling alarm:', error)

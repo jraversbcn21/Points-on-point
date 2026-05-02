@@ -74,14 +74,47 @@
   }
 }
 
+.sound-toggle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: #e0e0e0;
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.sound-toggle:hover {
+  background: #d0d0d0;
+  transform: scale(1.1);
+}
+
+.sound-toggle.sound-on {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.sound-toggle.sound-off {
+  background: #f5f5f5;
+  color: #999;
+}
+
 .language-select {
-  padding: 6px 10px;
+  padding: 4px 6px;
   border: 1px solid #d0d0d0;
   border-radius: 6px;
   background: white;
-  font-size: 12px;
+  font-size: 11px;
+  font-weight: 600;
   color: #666;
   cursor: pointer;
+  width: 50px;
+  text-align: center;
 }
 
 .language-select:focus {
@@ -210,6 +243,25 @@
 }
 
 
+.recurrence-select {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  font-size: 12px;
+  background: white;
+  cursor: pointer;
+}
+
+.recurrence-select:focus {
+  border-color: #3F51B5;
+  outline: none;
+}
+
+.reminder-indicator.is-recurring {
+  color: #7c4dff;
+}
+
 .reminder-buttons {
   display: flex;
   gap: 8px;
@@ -273,9 +325,10 @@
   display: flex;
   align-items: center;
   padding: 12px 0;
-  gap: 12px;
+  gap: 8px;
   border-bottom: 1px solid #f0f0f0;
-  transition: all 0.2s ease;
+  transition: background 0.2s ease, opacity 0.2s ease;
+  position: relative;
 }
 
 .task-item:last-child {
@@ -291,6 +344,33 @@
 
 .task-item.completed {
   opacity: 0.6;
+}
+
+.task-item.drag-over-above {
+  border-top: 2px solid #3F51B5;
+}
+
+.task-item.drag-over-below {
+  border-bottom: 2px solid #3F51B5;
+}
+
+.drag-handle {
+  cursor: grab;
+  color: #ccc;
+  font-size: 14px;
+  user-select: none;
+  flex-shrink: 0;
+  line-height: 1;
+  letter-spacing: -1px;
+  transition: color 0.2s ease;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.task-item:hover .drag-handle {
+  color: #999;
 }
 
 .task-checkbox {
@@ -343,9 +423,31 @@
   font-weight: 300;
 }
 
+.task-text {
+  cursor: default;
+}
+
+.task-item:not(.completed) .task-text {
+  cursor: text;
+}
+
 .task-item.completed .task-text {
   text-decoration: line-through;
   color: #999;
+}
+
+.task-edit-input {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid #3F51B5;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 300;
+  font-family: inherit;
+  color: #333;
+  background: white;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(63, 81, 181, 0.15);
 }
 
 .task-date {
@@ -357,15 +459,59 @@
 
 .reminder-indicator {
   font-size: 14px;
-  color: #ff9800;
+  background: none;
+  border: none;
   cursor: pointer;
   transition: all 0.2s ease;
   flex-shrink: 0;
+  padding: 2px 4px;
+  border-radius: 4px;
+  opacity: 0.35;
+}
+
+.reminder-indicator.has-reminder {
+  opacity: 1;
+}
+
+.task-item:hover .reminder-indicator {
+  opacity: 1;
 }
 
 .reminder-indicator:hover {
   transform: scale(1.2);
-  color: #f57c00;
+  background: #fff3e0;
+}
+
+.reminder-target-label {
+  font-size: 12px;
+  color: #555;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e9ecef;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.reminder-target-label strong {
+  color: #333;
+}
+
+.remove-reminder-button {
+  padding: 8px 16px;
+  background: #ffebee;
+  color: #d32f2f;
+  border: 1px solid #ffcdd2;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 300;
+  transition: all 0.2s ease;
+}
+
+.remove-reminder-button:hover {
+  background: #ffcdd2;
+  border-color: #ef9a9a;
 }
 
 .delete-button {

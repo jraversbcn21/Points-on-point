@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import { Task, Reminder } from '../common/types'
+import React, { useState, useEffect, useRef } from 'react'
+import { Task, Reminder, Recurrence } from '../common/types'
 import { storage } from '../common/storage'
 import { getTranslation, detectLanguage, Language } from '../common/i18n'
 import './App.css'
@@ -12,8 +12,17 @@ const App: React.FC = () => {
   const [reminderDate, setReminderDate] = useState('')
   const [reminderTime, setReminderTime] = useState('')
   const [reminderMessage, setReminderMessage] = useState('')
+  const [reminderRecurrence, setReminderRecurrence] = useState<Recurrence>('none')
   const [pendingReminder, setPendingReminder] = useState<Reminder | null>(null)
+  const [reminderTargetTaskId, setReminderTargetTaskId] = useState<string | null>(null)
   const [dateInputValue, setDateInputValue] = useState('')
+  const [soundEnabled, setSoundEnabled] = useState(true)
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null)
+  const [editingText, setEditingText] = useState('')
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
+  const [dragOverTaskId, setDragOverTaskId] = useState<string | null>(null)
+  const [dragOverPosition, setDragOverPosition] = useState<'above' | 'below' | null>(null)
+  const taskRefs = useRef<Map<string, HTMLDivElement>>(new Map())
 
   useEffect(() => {
     loadTasks()
@@ -38,17 +47,18 @@ const App: React.FC = () => {
   const loadSettings = async () => {
     const settings = await storage.getSettings()
     setLanguage(settings.language)
+    setSoundEnabled(settings.soundEnabled !== false)
   }
 
   const loadPendingReminder = async () => {
     const reminder = await storage.getPendingReminder()
     if (reminder) {
       setPendingReminder(reminder)
-      // Restaurar los campos del formulario
       const date = new Date(reminder.dueAt)
       setReminderDate(date.toISOString().split('T')[0])
       setReminderTime(date.toTimeString().slice(0, 5))
       setReminderMessage(reminder.message || '')
+      setReminderRecurrence(reminder.recurrence || 'none')
     }
   }
 
@@ -56,7 +66,7 @@ const App: React.FC = () => {
     if (!newTaskText.trim()) return
 
     const newTask = await storage.addTask(newTaskText.trim(), pendingReminder || undefined)
-    setTasks(prev => [...prev, newTask])
+    setTasks(prev => [newTask, ...prev])
     setNewTaskText('')
     
     // Reset reminder form
@@ -98,34 +108,198 @@ const App: React.FC = () => {
     await storage.updateSettings({ language: newLang })
   }
 
+  const handleSoundToggle = async () => {
+    const newValue = !soundEnabled
+    setSoundEnabled(newValue)
+    await storage.updateSettings({ soundEnabled: newValue })
+  }
+
+  const handleStartEdit = (task: Task) => {
+    if (task.completed) return
+    setEditingTaskId(task.id)
+    setEditingText(task.text)
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editingTaskId || !editingText.trim()) {
+      setEditingTaskId(null)
+      setEditingText('')
+      return
+    }
+
+    await storage.updateTask(editingTaskId, { text: editingText.trim() })
+    setTasks(prev => prev.map(t => t.id === editingTaskId ? { ...t, text: editingText.trim() } : t))
+    setEditingTaskId(null)
+    setEditingText('')
+  }
+
+  const handleCancelEdit = () => {
+    setEditingTaskId(null)
+    setEditingText('')
+  }
+
+  const handleDragStart = (e: React.DragEvent, taskId: string) => {
+    setDraggedTaskId(taskId)
+    e.dataTransfer.effectAllowed = 'move'
+    const el = taskRefs.current.get(taskId)
+    if (el) {
+      el.style.opacity = '0.4'
+    }
+  }
+
+  const handleDragOver = (e: React.DragEvent, taskId: string) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (taskId === draggedTaskId) return
+
+    const el = taskRefs.current.get(taskId)
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const midY = rect.top + rect.height / 2
+    const position = e.clientY < midY ? 'above' : 'below'
+
+    setDragOverTaskId(taskId)
+    setDragOverPosition(position)
+  }
+
+  const handleDragLeave = (e: React.DragEvent, taskId: string) => {
+    const el = taskRefs.current.get(taskId)
+    if (el && !el.contains(e.relatedTarget as Node)) {
+      if (dragOverTaskId === taskId) {
+        setDragOverTaskId(null)
+        setDragOverPosition(null)
+      }
+    }
+  }
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault()
+    if (!draggedTaskId || !dragOverTaskId || draggedTaskId === dragOverTaskId) {
+      resetDragState()
+      return
+    }
+
+    const newTasks = [...tasks]
+    const fromIndex = newTasks.findIndex(t => t.id === draggedTaskId)
+    const toIndex = newTasks.findIndex(t => t.id === dragOverTaskId)
+    if (fromIndex === -1 || toIndex === -1) {
+      resetDragState()
+      return
+    }
+
+    const [moved] = newTasks.splice(fromIndex, 1)
+    const insertIndex = dragOverPosition === 'below' ? toIndex + (fromIndex < toIndex ? 0 : 1) : toIndex - (fromIndex < toIndex ? 1 : 0)
+    newTasks.splice(Math.max(0, insertIndex), 0, moved)
+
+    setTasks(newTasks)
+    await storage.saveTasks(newTasks)
+    resetDragState()
+  }
+
+  const handleDragEnd = () => {
+    resetDragState()
+    taskRefs.current.forEach(el => { el.style.opacity = '' })
+  }
+
+  const resetDragState = () => {
+    setDraggedTaskId(null)
+    setDragOverTaskId(null)
+    setDragOverPosition(null)
+  }
+
+  const openReminderForNewTask = () => {
+    setReminderTargetTaskId(null)
+    if (showReminderForm && !reminderTargetTaskId) {
+      resetReminderForm()
+      return
+    }
+    if (pendingReminder) {
+      const date = new Date(pendingReminder.dueAt)
+      setReminderDate(date.toISOString().split('T')[0])
+      setReminderTime(date.toTimeString().slice(0, 5))
+      setReminderMessage(pendingReminder.message || '')
+      setReminderRecurrence(pendingReminder.recurrence || 'none')
+    } else {
+      setReminderDate('')
+      setReminderTime('')
+      setReminderMessage('')
+      setReminderRecurrence('none')
+    }
+    setShowReminderForm(true)
+  }
+
+  const openReminderForTask = (task: Task) => {
+    if (task.completed) return
+    setReminderTargetTaskId(task.id)
+    if (task.reminder) {
+      const date = new Date(task.reminder.dueAt)
+      setReminderDate(date.toISOString().split('T')[0])
+      setReminderTime(date.toTimeString().slice(0, 5))
+      setReminderMessage(task.reminder.message || '')
+      setReminderRecurrence(task.reminder.recurrence || 'none')
+    } else {
+      setReminderDate('')
+      setReminderTime('')
+      setReminderMessage('')
+      setReminderRecurrence('none')
+    }
+    setShowReminderForm(true)
+  }
+
   const handleSaveReminder = async () => {
     if (!reminderDate || !reminderTime) return
 
     const dueAt = new Date(`${reminderDate}T${reminderTime}`).getTime()
     if (dueAt <= Date.now()) {
-      alert(getTranslation('reminder', language) + ': ' + (language === 'es' ? 'La fecha y hora deben ser futuras' : 'Date and time must be in the future'))
+      alert(language === 'es' ? 'La fecha y hora deben ser futuras' : 'Date and time must be in the future')
       return
     }
 
     const reminder: Reminder = {
       id: crypto.randomUUID(),
-      taskId: '',
+      taskId: reminderTargetTaskId || '',
       dueAt,
-      message: reminderMessage || undefined
+      message: reminderMessage || undefined,
+      recurrence: reminderRecurrence
     }
 
-    setPendingReminder(reminder)
-    await storage.savePendingReminder(reminder)
-    setShowReminderForm(false)
+    if (reminderTargetTaskId) {
+      const updatedReminder = { ...reminder, taskId: reminderTargetTaskId }
+      await storage.updateTask(reminderTargetTaskId, { reminder: updatedReminder })
+      setTasks(prev => prev.map(t => t.id === reminderTargetTaskId ? { ...t, reminder: updatedReminder } : t))
+      await chrome.alarms.clear(reminderTargetTaskId)
+      chrome.alarms.create(reminderTargetTaskId, { when: dueAt })
+    } else {
+      setPendingReminder(reminder)
+      await storage.savePendingReminder(reminder)
+    }
+
+    resetReminderForm()
   }
 
-  const handleCancelReminder = async () => {
+  const handleRemoveReminder = async () => {
+    if (reminderTargetTaskId) {
+      await storage.updateTask(reminderTargetTaskId, { reminder: undefined })
+      setTasks(prev => prev.map(t => t.id === reminderTargetTaskId ? { ...t, reminder: undefined } : t))
+      await chrome.alarms.clear(reminderTargetTaskId)
+    } else {
+      setPendingReminder(null)
+      await storage.savePendingReminder(null)
+    }
+    resetReminderForm()
+  }
+
+  const resetReminderForm = () => {
     setShowReminderForm(false)
     setReminderDate('')
     setReminderTime('')
     setReminderMessage('')
-    setPendingReminder(null)
-    await storage.savePendingReminder(null)
+    setReminderRecurrence('none')
+    setReminderTargetTaskId(null)
+  }
+
+  const handleCancelReminder = () => {
+    resetReminderForm()
   }
 
   const getMinDateTime = () => {
@@ -226,19 +400,26 @@ const App: React.FC = () => {
         <h1>Points on point</h1>
         <div className="header-controls">
           <button
-            onClick={() => setShowReminderForm(!showReminderForm)}
+            onClick={openReminderForNewTask}
             className={`reminder-bell ${pendingReminder ? 'has-reminder' : ''}`}
             title={pendingReminder ? getTranslation('reminder', language) : getTranslation('setReminder', language)}
           >
             🔔
           </button>
-          <select 
+          <button
+            onClick={handleSoundToggle}
+            className={`sound-toggle ${soundEnabled ? 'sound-on' : 'sound-off'}`}
+            title={getTranslation('soundEnabled', language)}
+          >
+            {soundEnabled ? '🔊' : '🔇'}
+          </button>
+          <select
             value={language} 
             onChange={(e) => handleLanguageChange(e.target.value as Language)}
             className="language-select"
           >
-            <option value="en">{getTranslation('english', language)}</option>
-            <option value="es">{getTranslation('spanish', language)}</option>
+            <option value="en">EN</option>
+            <option value="es">ES</option>
           </select>
         </div>
       </div>
@@ -246,6 +427,11 @@ const App: React.FC = () => {
       {showReminderForm && (
         <div className="reminder-section-top">
           <div className="reminder-form-inline">
+            {reminderTargetTaskId && (
+              <div className="reminder-target-label">
+                {getTranslation('reminderFor', language)}: <strong>{tasks.find(t => t.id === reminderTargetTaskId)?.text}</strong>
+              </div>
+            )}
             <div className="reminder-row">
               <label>{getTranslation('reminderDate', language)}:</label>
               <input
@@ -278,6 +464,18 @@ const App: React.FC = () => {
                 onKeyPress={(e) => e.key === 'Enter' && handleSaveReminder()}
               />
             </div>
+            <div className="reminder-row">
+              <label>{getTranslation('recurrence', language)}:</label>
+              <select
+                value={reminderRecurrence}
+                onChange={(e) => setReminderRecurrence(e.target.value as Recurrence)}
+                className="recurrence-select"
+              >
+                <option value="none">{getTranslation('recurrenceNone', language)}</option>
+                <option value="daily">{getTranslation('recurrenceDaily', language)}</option>
+                <option value="weekly">{getTranslation('recurrenceWeekly', language)}</option>
+              </select>
+            </div>
             <div className="reminder-buttons">
               <button
                 onClick={handleSaveReminder}
@@ -286,6 +484,14 @@ const App: React.FC = () => {
               >
                 {getTranslation('saveReminder', language)}
               </button>
+              {((reminderTargetTaskId && tasks.find(t => t.id === reminderTargetTaskId)?.reminder) || (!reminderTargetTaskId && pendingReminder)) && (
+                <button
+                  onClick={handleRemoveReminder}
+                  className="remove-reminder-button"
+                >
+                  {getTranslation('removeReminder', language)}
+                </button>
+              )}
               <button
                 onClick={handleCancelReminder}
                 className="cancel-reminder-button"
@@ -318,8 +524,19 @@ const App: React.FC = () => {
       {tasks.length > 0 && (
         <div className="tasks-section">
           <div className="tasks-list">
-            {[...tasks].reverse().map(task => (
-              <div key={task.id} className={`task-item ${task.completed ? 'completed' : ''}`}>
+            {tasks.map(task => (
+              <div
+                key={task.id}
+                ref={el => { if (el) taskRefs.current.set(task.id, el); else taskRefs.current.delete(task.id) }}
+                className={`task-item ${task.completed ? 'completed' : ''} ${dragOverTaskId === task.id && dragOverPosition ? `drag-over-${dragOverPosition}` : ''}`}
+                draggable={editingTaskId !== task.id}
+                onDragStart={(e) => handleDragStart(e, task.id)}
+                onDragOver={(e) => handleDragOver(e, task.id)}
+                onDragLeave={(e) => handleDragLeave(e, task.id)}
+                onDrop={handleDrop}
+                onDragEnd={handleDragEnd}
+              >
+                <span className="drag-handle" title="Drag">⠿</span>
                 <input
                   type="checkbox"
                   checked={task.completed}
@@ -327,13 +544,41 @@ const App: React.FC = () => {
                   className="task-checkbox"
                 />
                 <div className="task-content">
-                  <span className="task-text">{task.text}</span>
+                  {editingTaskId === task.id ? (
+                    <input
+                      type="text"
+                      value={editingText}
+                      onChange={(e) => setEditingText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSaveEdit()
+                        if (e.key === 'Escape') handleCancelEdit()
+                      }}
+                      onBlur={handleSaveEdit}
+                      className="task-edit-input"
+                      autoFocus
+                    />
+                  ) : (
+                    <span
+                      className="task-text"
+                      onDoubleClick={() => handleStartEdit(task)}
+                      title={getTranslation('editTask', language)}
+                    >
+                      {task.text}
+                    </span>
+                  )}
                   <span className="task-date">{formatDate(task.createdAt)}</span>
                 </div>
-                {task.reminder && (
-                  <span className="reminder-indicator" title={`${getTranslation('reminder', language)}: ${new Date(task.reminder.dueAt).toLocaleString()}`}>
-                    🔔
-                  </span>
+                {!task.completed && (
+                  <button
+                    onClick={() => openReminderForTask(task)}
+                    className={`reminder-indicator ${task.reminder ? 'has-reminder' : ''} ${task.reminder?.recurrence && task.reminder.recurrence !== 'none' ? 'is-recurring' : ''}`}
+                    title={task.reminder
+                      ? `${getTranslation('reminder', language)}: ${new Date(task.reminder.dueAt).toLocaleString()}${task.reminder.recurrence && task.reminder.recurrence !== 'none' ? ` (${getTranslation(task.reminder.recurrence === 'daily' ? 'recurrenceDaily' : 'recurrenceWeekly', language)})` : ''}`
+                      : getTranslation('setReminder', language)
+                    }
+                  >
+                    {task.reminder ? (task.reminder.recurrence && task.reminder.recurrence !== 'none' ? '🔁' : '🔔') : '🔕'}
+                  </button>
                 )}
                 <button
                   onClick={() => handleDeleteTask(task.id)}
