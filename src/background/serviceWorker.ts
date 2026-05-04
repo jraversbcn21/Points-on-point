@@ -9,7 +9,9 @@ const restoreAlarms = async () => {
   const now = Date.now()
 
   for (const task of tasks) {
-    if (!task.reminder || task.completed) continue
+    if (!task.reminder) continue
+    const isRecurring = task.reminder.recurrence && task.reminder.recurrence !== 'none'
+    if (task.completed && !isRecurring) continue
 
     let dueAt = task.reminder.dueAt
     const recurrence = task.reminder.recurrence
@@ -166,7 +168,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
         nextDueAt += increment
       }
       const updatedReminder = { ...task.reminder!, dueAt: nextDueAt }
-      await storage.updateTask(task.id, { reminder: updatedReminder })
+      await storage.updateTask(task.id, { reminder: updatedReminder, completed: false })
       await chrome.alarms.create(task.id, { when: nextDueAt })
       console.log(`Rescheduled ${recurrence} alarm for task ${task.id} at ${new Date(nextDueAt)}`)
     }
