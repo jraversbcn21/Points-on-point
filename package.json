@@ -2,6 +2,7 @@
   "name": "points-on-point",
   "version": "1.1.0",
   "description": "Chrome extension for to-do list with reminders",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite",
