@@ -83,3 +83,7 @@ interface Reminder {
 ### Language support
 
 Browser language is auto-detected on first run; user can override via compact EN/ES dropdown in popup header. Preference stored in `settings.language`. All UI strings go through `getTranslation(key, language)` from `src/common/i18n.ts`.
+
+## License
+
+MIT — see `LICENSE`. Copyright (c) 2025 SidMaier. The `"license": "MIT"` field is also declared in `package.json`.
